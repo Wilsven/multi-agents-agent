@@ -3,10 +3,13 @@ name: Notify Main Repository on Release Tag
 on:
   push:
     tags:
-      - "*" # Trigger on any tag push
+      # Trigger ONLY on tags matching semantic versioning patterns (adjust as needed)
+      # Examples: v1.2.3, api-v1.2.3, 1.2.3
+      - "v[0-9]+.[0-9]+.[0-9]+*" # Standard vX.Y.Z (allows suffixes like -rc1)
 
 jobs:
   notify:
+    name: Notify Main Repository
     runs-on: ubuntu-latest
     steps:
       - name: Get Tag Name
@@ -23,6 +26,6 @@ jobs:
           # Send necessary info
           client-payload: |
             {
-              "submodule_path": "agent",
+              "submodule_path": "src/agent",
               "tag": "${{ steps.get_tag.outputs.tag_name }}"
             }
