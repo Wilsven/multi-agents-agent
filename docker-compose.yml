@@ -1,0 +1,69 @@
+services:
+  # # API Service (FastAPI)
+  # api:
+  #   container_name: api_service
+  #   build:
+  #     context: ./src/api
+  #     dockerfile: Dockerfile
+  #   ports:
+  #     # Map host port 8000 to container port 8000
+  #     - "8000:8000"
+  #   # volumes:
+  #   #   # Mount the local API code into the container's /app directory
+  #   #   # This enables live reloading on code changes
+  #   #   - ./src/api/app:/app/app
+  #   #   - ./src/api/scripts:/app/scripts # Mount scripts if you change them often
+  #   #   - ./src/api/data:/app/data
+  #   # Load environment variables from files.
+  #   # Files are loaded in order. Variables in later files override earlier ones.
+  #   # Variables defined in 'environment:' below take highest precedence.
+  #   env_file:
+  #     # - .env # General local dev settings (optional)
+  #     # - .azure.env # Azure-specific settings (copied/symlinked by dev)
+  #     - .azure/agents/.env
+  #   environment:
+  #     # Define any environment variables needed by the API service
+  #     # Example: DATABASE_URL: postgresql://user:password@db:5432/apidb
+  #     # For development, you might use hardcoded values or a .env file (see below)
+  #     ENV_TYPE: development
+  #   # If API depends on a database, add 'depends_on' here
+  #   # depends_on:
+  #   #   - db
+  #   healthcheck: # Optional but useful healthcheck for API
+  #     test: ["CMD", "curl", "-f", "http://localhost:8000/health"] # Assuming you add a /health endpoint
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 3
+  #     start_period: 10s # Give it time to start
+  #   restart: unless-stopped
+
+  # AGENT Service (FastAPI)
+  agent:
+    container_name: agent_service
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8001:8001"
+    volumes:
+      - .:/app
+    env_file:
+      - .env # General local dev settings
+      - .azure/agents/.env # Azure-specific settings
+    environment:
+      # CRUCIAL: Tell the AGENT how to reach the API service.
+      # 'api' is the service name defined above. Docker Compose handles DNS.
+      # '8000' is the port the API service EXPOSES *inside* the Docker network.
+      # API_URL: http://api:8000
+      # Add other necessary agent env vars
+      ENV_TYPE: development
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+networks:
+  default:
+    name: multi_agents_network
