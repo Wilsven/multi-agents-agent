@@ -1,8 +1,12 @@
 import asyncio
+import json
+import os
 import re
 from dataclasses import asdict
 from typing import AsyncGenerator, Optional
 
+import httpx
+from dotenv import load_dotenv
 from openai.types.responses import ResponseContentPartDoneEvent, ResponseTextDeltaEvent
 
 from agents import (
@@ -21,6 +25,9 @@ from app.schemas.voice import VoiceResponse
 from app.services.openai.agents import current_agent_mapping, triage_agent
 from app.services.speech.text_to_speech import TextToSpeech
 
+load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), "../../../../../.env"))
+LANGUAGE_DETECTION_ENDPOINT = os.getenv("LANGUAGE_DETECTION_ENDPOINT")
+
 
 # --------------------------
 # Main function
@@ -34,13 +41,17 @@ async def main(
     speech_client: Optional[TextToSpeech] = None,
 ) -> AsyncGenerator[ChatResponse | VoiceResponse, None]:
 
-    # Init RunContextWrapper with auth token
+    detected_input_language = await get_user_input_language(user_msg)
+    print("Detected language:", detected_input_language)
+
+    # If you want to init wrapper with it
     wrapper = RunContextWrapper(
         context=UserInfo(
             auth_header={
                 "Authorization": f"Bearer {auth_token}",
                 "Content-Type": "application/json",
-            }
+            },
+            user_input_language=detected_input_language,
         )
     )
 
@@ -211,6 +222,10 @@ async def main(
 
     # TODO: handle cases where halfmade booking cache should be removed
     history = result.to_input_list()
+
+    last_message = history[-1]["content"][0]["text"]
+    generated_response_language = await get_user_input_language(last_message)
+
     response_dict = {
         "event_type": EventType.TERMINATING_EVENT,  # the end of the conversation
         "message": None,
@@ -219,7 +234,10 @@ async def main(
         "history": history,  # the consolidated history of the whole call
         "agent_name": current_agent,
         "user_info": asdict(wrapper.context),
+        "response_language": generated_response_language,
     }
+
+    # TODO: detect langauge
 
     if request_type == RequestType.CHAT_REQUEST:
         response = ChatResponse(**response_dict)
@@ -229,13 +247,58 @@ async def main(
         yield response
 
 
+async def get_user_input_language(user_msg: str) -> str:
+    url = LANGUAGE_DETECTION_ENDPOINT
+    headers = {"Content-Type": "application/json"}
+    payload = {"text": user_msg}
+
+    async with httpx.AsyncClient() as client:
+        response = await client.post(url, json=payload, headers=headers, timeout=10)
+
+    data = response.json()
+    if response.status_code != 200:
+        raise Exception(f"Error: {response.status_code} - {response.text}")
+
+    return data
+
+
 async def simulate_stream():
+    # convert user_msg to english
+    user_data = {
+        "username": "diana.lewis@example.com",
+        "password": "guest",
+    }  # 6 past records + 1 upcoming flu vaccine in late june
+
+    login_data = {
+        "grant_type": "password",  # Required
+        "username": user_data["username"],  # Email used for login
+        "password": user_data["password"],  # Password used for login
+        "scope": "",  # Optional (empty value sent)
+        "client_id": "",  # Optional (empty value sent)
+        "client_secret": "",  # Optional (empty value sent)
+    }
+
+    async with httpx.AsyncClient(timeout=10.0) as httpclient:
+        try:
+            login = await httpclient.post(
+                "http://127.0.0.1:8000/login", data=login_data
+            )
+        except Exception as e:
+            print(f"Error making request: {e}")
+
+    response = json.loads(login.text)
+    auth_token = response["access_token"]
+
+    # user_msg = "我要预约水痘疫苗."
+    # user_msg = "I want to book a chickenpox vaccine."
+    user_msg = "Tolong bantu saya menempah vaksin cacar air di Poliklinik Tampines pada bulan Mei"
+
     async for chunk in main(
         request_type=RequestType.CHAT_REQUEST,
-        user_msg="I want to book an appointment for a vaccination.",
+        user_msg=user_msg,
         history=None,
         current_agent=None,
-        user_info=None,
+        auth_token=auth_token,
     ):
         print("================ Streamed Chunk ================")
         print(chunk)
@@ -243,4 +306,5 @@ async def simulate_stream():
 
 if __name__ == "__main__":
 
+    # asyncio.run(get_user_input_language("9p834urhnf0i43u32"))
     asyncio.run(simulate_stream())

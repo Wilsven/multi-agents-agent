@@ -9,11 +9,6 @@ from typing import Dict, List
 import httpx
 import pytz
 import requests
-from azure.identity.aio import DefaultAzureCredential, get_bearer_token_provider
-from dotenv import load_dotenv
-from openai import AsyncAzureOpenAI
-from openai.types.chat import ChatCompletion
-from openai_messages_token_helper import build_messages
 
 from agents import RunContextWrapper, function_tool
 from app.schemas.chat import (
@@ -45,18 +40,18 @@ SEED = 1234
 RESPONSE_TOKEN_LIMIT = 512
 CHATGPT_TOKEN_LIMIT = 128000
 
-credential = DefaultAzureCredential()
-token_provider = get_bearer_token_provider(
-    credential, "https://cognitiveservices.azure.com/.default"
-)
+# credential = DefaultAzureCredential()
+# token_provider = get_bearer_token_provider(
+#     credential, "https://cognitiveservices.azure.com/.default"
+# )
 
 
-client = AsyncAzureOpenAI(
-    api_version="2024-10-21",
-    azure_endpoint=f"https://{AZURE_OPENAI_SERVICE}.openai.azure.com",
-    azure_ad_token_provider=token_provider,
-    azure_deployment=AZURE_OPENAI_CHATGPT_DEPLOYMENT,
-)
+# client = AsyncAzureOpenAI(
+#     api_version="2024-10-21",
+#     azure_endpoint=f"https://{AZURE_OPENAI_SERVICE}.openai.azure.com",
+#     azure_ad_token_provider=token_provider,
+#     azure_deployment=AZURE_OPENAI_CHATGPT_DEPLOYMENT,
+# )
 
 
 # --------------------------
@@ -69,7 +64,7 @@ async def get_past_records(
     Helper function for get_vaccination_history_tool and get_latest_vaccination_tool
 
     Args:
-        requested_vaccine: Optional parameter to filter past records by vaccine type. If none, returns most recent records for all vaccine types.
+        requested_vaccine: Optional parameter to filter past records by vaccine type in **English**. If none, returns most recent records for all vaccine types.
     """
     # Get the booked slots from user
     async with httpx.AsyncClient(timeout=10.0) as httpclient:
@@ -154,7 +149,7 @@ async def get_latest_vaccination_tool(
     Gets most recent vaccinations of the user for the requested vaccine type and its recommended vaccination frequency.
 
     Args:
-      requested_vaccine: User input of vaccine type found from chat history.
+      requested_vaccine: Standardised user input of vaccine type found from chat history.
     """
     result = await get_past_records(wrapper, requested_vaccine)
 
@@ -164,9 +159,13 @@ async def get_latest_vaccination_tool(
 @function_tool
 async def get_upcoming_appointments_tool(
     wrapper: RunContextWrapper[UserInfo],
+    requested_vaccine: str,
 ) -> list | str:
     """
-    Gets list of current bookings from the user, which can be used to check if user already has an existing booking for the vaccine requested.
+    Get user's upcoming booking (if any) for the requested vaccine type, which can be used to check if user already has an existing booking for it.
+
+    Args:
+      requested_vaccine: Standardised user input of vaccine type found from chat history, must be in **English**.
     """
     # Get the booked slots from user
     async with httpx.AsyncClient(timeout=10.0) as httpclient:
@@ -200,10 +199,12 @@ async def get_upcoming_appointments_tool(
         record["vaccine_name"] = booking_slot["vaccine"]["name"]
         record["slot_date"] = booking_slot["datetime"]
         record["polyclinic"] = booking_slot["polyclinic"]["name"]
-        if datetime.fromisoformat(record["slot_date"]).replace(
-            tzinfo=pytz.UTC
-        ) >= datetime.fromisoformat(f"{wrapper.context.context.date}").replace(
-            tzinfo=pytz.UTC
+        if (
+            datetime.fromisoformat(record["slot_date"]).replace(tzinfo=pytz.UTC)
+            >= datetime.fromisoformat(f"{wrapper.context.context.date}").replace(
+                tzinfo=pytz.UTC
+            )
+            and record["vaccine_name"] == requested_vaccine
         ):
             augmented_records.append(record)
 
@@ -230,57 +231,14 @@ async def recommend_vaccines_tool(wrapper: RunContextWrapper[UserInfo]) -> str:
 
 
 @function_tool
-async def standardise_vaccine_name_tool(
-    wrapper: RunContextWrapper[UserInfo], requested_vaccine: str
-) -> dict | str:
+async def standardised_vaccine_name_tool(standardised_vaccine_name: str) -> str:
     """
-    Always use this tool when the step requires it.
-
-    Args:
-        requested_vaccine: User input of vaccine type found from chat history.
+    Structured output for standardised vaccine name.
     """
-    standard_name_prompt = f"""
-    The input may use informal name, and your task is to map it to the correct official name. For example, the input "flu vaccine" should be mapped to "Influenza (INF)".
-
-    Find the closest match of {requested_vaccine} to the list below:
-    - Influenza (INF)
-    - Pneumococcal Conjugate (PCV13)
-    - Human Papillomavirus (HPV)
-    - Tetanus, Diphtheria, Pertussis (Tdap)
-    - Hepatitis B (HepB)
-    - Measles, Mumps, Rubella (MMR)
-    - Varicella (VAR)
-
-    If there is a match, return the value in the list exactly.
-    Else, return "Handoff to recommender_agent"
-
-    Official vaccine name:
-    """
-
-    messages = build_messages(
-        model=OPENAI_CHATGPT_MODEL,
-        system_prompt=standard_name_prompt,
-        max_tokens=CHATGPT_TOKEN_LIMIT - RESPONSE_TOKEN_LIMIT,
-    )
-
-    chat_completion: ChatCompletion = await client.chat.completions.create(
-        model=AZURE_OPENAI_CHATGPT_DEPLOYMENT,
-        messages=messages,
-        temperature=0,
-        max_tokens=RESPONSE_TOKEN_LIMIT,
-        n=1,
-        stream=False,
-        seed=SEED,
-    )
-
-    llm_output = chat_completion.choices[0].message.content
-    if llm_output != "None":
-        response_dict = {
-            "vaccine_name": llm_output,
-        }
-        return response_dict
-    else:
-        return llm_output
+    response_dict = {
+        "standardised_vaccine_name": standardised_vaccine_name,
+    }
+    return response_dict
 
 
 async def get_location_info(location_name: str) -> dict | None:
@@ -394,7 +352,7 @@ async def get_available_slots_tool(
 
     Args:
         vaccine_name: Official name of vaccine type
-        clinic: The name of clinic
+        clinic: The official name of clinic, must be in **English**
         start_date: Optional parameter. Include only if start date is provided by user. (Date in ISO format)
         end_date: Optional parameter. Include only if end date is provided by user. (Date in ISO format)
     """
@@ -463,7 +421,7 @@ async def construct_google_maps_url(
     async with httpx.AsyncClient(timeout=10.0) as httpclient:
         try:
             user_profile = await httpclient.get(
-                "{BACKEND_MAIN_API_URL}/users",
+                f"{BACKEND_MAIN_API_URL}/users",
                 headers=wrapper.context.context.auth_header,
             )
         except Exception as e:

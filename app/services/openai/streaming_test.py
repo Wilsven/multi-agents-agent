@@ -24,14 +24,16 @@ async def handle_stream(user_message: str, history: list, current_agent: str = N
         async with client.stream(
             "POST",
             # "http://127.0.0.1:8001/voice/stream",
-            "http://127.0.0.1:8001/chat/stream",
+            # "https://ca-agent-zw3uvhgul6x4g.wonderfultree-18ec7e88.southeastasia.azurecontainerapps.io/chat/stream",
             # "http://127.0.0.1:8001/chat/stream_mcp",
+            "https://ca-agent-zw3uvhgul6x4g.wonderfultree-18ec7e88.southeastasia.azurecontainerapps.io/voice/stream",
             json={
                 "message": user_message,
                 "history": history,
                 "agent_name": current_agent,
-                "auth_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiNWIyMmM5MGEtMGEzNS00NGNhLThhNjEtYmIyYTgwY2U3ZGRkIiwicmVmcmVzaCI6ZmFsc2UsImV4cCI6MTc0NzM3NjY0OX0.IZbaCTKXU8WAhcy216WBROhBaBBEguhFimHd1B788XY",
+                "auth_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiYjY0YzQwNjctYTM3Zi00MWUzLTljNmEtN2JmZGVmYjk5MmFlIiwicmVmcmVzaCI6ZmFsc2UsImV4cCI6MTc0NzYyMDE4OH0.iJ5hUhybGJgF--o4zrhtVAeoTf-Zo7lcOEQzeZPdldg",
                 "session_id": test_session_id,
+                "request_type": "voice_request",
             },
         ) as response:
             async for line in response.aiter_lines():
@@ -64,7 +66,7 @@ async def print_tracing_info_by_session_id(session_id):
     async with httpx.AsyncClient(timeout=timeout) as client:
         try:
             response = await client.post(
-                "http://127.0.0.1:8001/metrics",
+                "https://ca-agent-zw3uvhgul6x4g.wonderfultree-18ec7e88.southeastasia.azurecontainerapps.io/metrics",
                 json={
                     "session_id": session_id,
                 },

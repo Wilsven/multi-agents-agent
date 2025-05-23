@@ -12,7 +12,6 @@ from starlette.middleware.cors import CORSMiddleware
 from app.routers import (
     chat,
     metrics,
-    transcription,
     voice,
 )
 from app.services.arize.arize import ArizeClient
@@ -51,14 +50,14 @@ def create_agent_app():
 
     app = FastAPI(lifespan=agent_lifespan)
 
-    # origins = [
-    #     "http://localhost:3000",
-    #     "http://localhost:4200",
-    #     "http://localhost:8000",
-    # ]
+    origins = [
+        "http://localhost:3000",
+        "http://localhost:4200",
+        "http://localhost:8000",
+    ]
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"], # TODO - restrict this in production
+        allow_origins=origins,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],

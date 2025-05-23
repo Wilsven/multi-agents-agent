@@ -24,10 +24,9 @@ async def send_chat_stream(voice_request: VoiceRequest, request: Request):
                 user_msg=voice_request.message,
                 history=voice_request.history,
                 current_agent=voice_request.agent_name,
-                user_info=voice_request.user_info,
+                auth_token=voice_request.auth_token,
                 speech_client=tts,
             ):
-
                 # Convert ChatResponse to JSON bytes
                 yield chunk.model_dump_json() + "\n"
 
