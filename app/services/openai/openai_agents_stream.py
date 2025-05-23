@@ -25,10 +25,8 @@ from app.schemas.voice import VoiceResponse
 from app.services.openai.agents import current_agent_mapping, triage_agent
 from app.services.speech.text_to_speech import TextToSpeech
 
-load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), "../../../../../.env"))
-LANGUAGE_DETECTION_ENDPOINT = os.getenv("LANGUAGE_DETECTION_ENDPOINT")
 
-
+BACKEND_MAIN_API_URL = os.getenv("BACKEND_MAIN_API_URL")
 # --------------------------
 # Main function
 # --------------------------
@@ -248,7 +246,7 @@ async def main(
 
 
 async def get_user_input_language(user_msg: str) -> str:
-    url = LANGUAGE_DETECTION_ENDPOINT
+    url =  f"{BACKEND_MAIN_API_URL}/translate/get_language"
     headers = {"Content-Type": "application/json"}
     payload = {"text": user_msg}
 

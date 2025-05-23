@@ -48,6 +48,7 @@ class ResponseBase(BaseModel):
     data_type: Optional[DataType] = None
     data: Optional[Any] = None
     user_info: dict
+    response_language: Optional[str] = None
 
 
 class ChatResponse(ResponseBase):
@@ -62,6 +63,7 @@ class UserInfo:
     restart: bool = False
     current_agent: Optional[str] = None
     interrupted_agent: Optional[str] = None
+    user_input_language: Optional[str] = None
 
 
 class BookingDetails(BaseModel):

@@ -40,9 +40,16 @@ $azCmd = @"
 az containerapp up --name $env:APP_NAME --resource-group $env:RESOURCE_GROUP --image $env:REGISTRY_SERVER/multi-agents-agent:$env:IMAGE_TAG --environment $env:ENVIRONMENT_NAME --logs-workspace-id $env:LOGS_WORKSPACE_ID --logs-workspace-key $env:LOGS_WORKSPACE_KEY --registry-server $env:REGISTRY_SERVER --registry-username $env:REGISTRY_USERNAME --registry-password $env:REGISTRY_PASSWORD --ingress external --target-port 8001 --env-vars $envVarsArg
 "@
 
+$azUpdateCmd = @"
+az containerapp ingress cors enable --name $env:APP_NAME --resource-group $env:RESOURCE_GROUP --allowed-origins * --allowed-methods * --allowed-headers *
+"@
+
 # Print the command
 Write-Host "Running the following command:"
 Write-Host $azCmd
 
 # Execute the command
 Invoke-Expression $azCmd
+
+# Write-Host "Updating the ContainerApp:"
+# Invoke-Expression $azUpdateCmd

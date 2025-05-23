@@ -1,5 +1,6 @@
 from datetime import date, datetime
 from enum import Enum
+from typing import List, Optional
 from uuid import UUID
 
 from pydantic import BaseModel, EmailStr, Field, field_validator
@@ -12,6 +13,12 @@ class Gender(str, Enum):
     FEMALE = "F"
 
 
+class HealthCondition(str, Enum):
+    DIABETES = "Diabetes"
+    HYPERTENSION = "Hypertension"
+    HIGH_CHOLESTEROL = "High Cholesterol"
+
+
 class UserBase(BaseModel):
     nric: str = Field(..., pattern=r"[STFGM]\d{7}[A-Z]")
     first_name: str
@@ -19,6 +26,7 @@ class UserBase(BaseModel):
     email: EmailStr
     date_of_birth: date
     gender: Gender
+    health_conditions: Optional[List[HealthCondition]] = None
 
     @field_validator("first_name", "last_name", mode="before")
     def auto_capitalize(cls, value: str) -> str:

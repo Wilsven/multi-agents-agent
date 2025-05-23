@@ -50,11 +50,12 @@ def create_agent_app():
 
     app = FastAPI(lifespan=agent_lifespan)
 
-    origins = [
-        "http://localhost:3000",
-        "http://localhost:4200",
-        "http://localhost:8000",
-    ]
+    # origins = [
+    #     "http://localhost:3000",
+    #     "http://localhost:4200",
+    #     "http://localhost:8000",
+    # ]
+    origins = ["*"]
     app.add_middleware(
         CORSMiddleware,
         allow_origins=origins,
